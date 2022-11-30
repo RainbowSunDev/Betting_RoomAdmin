@@ -6,17 +6,21 @@ const SOCKET_CHAT_JOIN_ROOM = "c/1";
 const SOCKET_CHAT_SEND_MESSAGE = "c/2";
 const SOCKET_CHAT_USERS_LIST = "c/5"
 const SOCKET_CHAT_SENT = "c/4";
+
+const SOCKET_BET_JOIN_ROOM = "b/2"
+const SOCKET_BET_BET = "b/1"
 const USER_SEND_MSG = 1 // user send the message
 const ADMIN_SEND_MSG = 2 // admin send the message
 
 const RES_STATUS_ERROR = 0; // other errors
 const RES_STATUS_SUCCESS = 1; // 200
-
+const SOCKET_BET_TABLE_EVENT = "b/14";
 
 const SOCKET_JOIN_ROOM = "join_room"
 const roomID = "638026daa55a568ba804ce85"
 const server = "http://192.168.125.102:4000"
-const imageURL = "http://192.168.125.102:4000/images/avatar/"
+const imageURL = "http://192.168.125.102:4000/images/"
+const adminID = "6380089327d9ee4ed4261bea"
 const socket =  socketIO.connect(server, {
   cors: {
     origin: "*",
@@ -24,33 +28,136 @@ const socket =  socketIO.connect(server, {
 },);
 function App() {
   // Similar to componentDidMount and componentDidUpdate:
-  const [userList, setUserList] = useState([]);
+  const [chattingList, setchattingList] = useState([]);
+  const [allowedUserList, setAllowedUserList] = useState([])
   const [isConnected, setIsConnected] = useState(socket.connected);
   const [msgList, setMsgList] = useState([]);
   const [message, setMessage] = useState("");
-  const [selectedUser, setSelectedUser] = useState();
-  const messagesEndRef = React.createRef()
+  const [selectedItem, setSelectedItem] = useState();
+  const [selectedTab, setSelectedTab] = useState(0);
+  const [lotteryList, setLotteryList] = useState([
+    {
+      id: "638118ab5d3f0000840071e2",
+      name: "幸运飞艇",
+      image: "gameSymbolBg1.png"
+    },
+    {
+      id: "63811b0e5d3f0000840071e3",
+      name: "极速赛车",
+      image: "gameSymbolBg2.png"
+    },
+    {
+      id: "63811b385d3f0000840071e4",
+      name: "极速时时彩",
+      image: "gameSymbolBg3.png"
+    },
+    {
+      id: "63811b5b5d3f0000840071e5",
+      name: "幸运飞艇",
+      image: "gameSymbolBg4.png"
+    },
+    {
+      id: "63811b645d3f0000840071e6",
+      name: "极速飞艇",
+      image: "gameSymbolBg5.png"
+    }
+  ]);
   const getUserMessage = (event, user_id) => {
     event.preventDefault();
-    setSelectedUser(user_id)
-    
+    if(selectedTab == 0)
+    {
+      setSelectedItem({
+        avatar: 'avatar/' + user_id.avatar,
+        name: user_id.userId
+      })
       socket.emit(SOCKET_CHAT_JOIN_ROOM, {
         userID: user_id._id,
         roomID,
       })
+    }
+    if(selectedTab == 1)
+    {
+      setSelectedItem({
+        avatar: 'room/' + user_id.image,
+        name: user_id.name
+      })
+      socket.emit(SOCKET_BET_JOIN_ROOM, {
+        userID: adminID,
+        roomID,
+        lotteryType: user_id.id
+      })
+    }
   }
   const sendMessage = (e) => {
     e.preventDefault();
     if(message != "")
-    socket.emit(SOCKET_CHAT_SEND_MESSAGE, {
-      userID: selectedUser._id,
+    {
+      if(selectedTab == 0)
+      {
+        socket.emit(SOCKET_CHAT_SEND_MESSAGE, {
+          userID: selectedItem._id,
+          roomID,
+          sendTo: ADMIN_SEND_MSG,
+          msg: message
+        })
+      }
+      if(selectedTab == 1)
+      {
+        socket.emit(SOCKET_BET_BET, {
+          userInfo: {
+            _id: adminID
+          },
+          roomID,
+          lotteryType: selectedItem.id,
+          msg: message
+        })
+      }
+    }
+  }
+  socket.on(SOCKET_BET_BET, (data, status) => {
+    
+    if(status == RES_STATUS_SUCCESS)
+    {
+      // console.log(data, status)
+    //   if(sendTo == ADMIN_SEND_MSG)
+    //   {
+    //     let temp = [...msgList]
+    //     temp.push({
+    //       msg: content,
+    //       sender_type: "admin",
+    //     })
+    //     setMsgList(temp)
+    //   }
+    //   if(sendTo == USER_SEND_MSG)
+    //   {
+    //     let temp = [...msgList]
+    //     temp.push({
+    //       msg: content,
+    //       sender_type: "user",
+    //     })
+    //     setMsgList(temp)
+    //   }
+    //   setMessage("")
+    // }
+    // else{
+    //   alert("Sorry try again.")
+    }
+  })
+  
+  const getBettingRoomList = (e) => {
+    e.preventDefault()
+    setchattingList(lotteryList);
+    setSelectedItem({
+      name: lotteryList[0].name,
+      avatar: 'room/' + lotteryList[0].image,
+    })
+    socket.emit(SOCKET_BET_JOIN_ROOM, {
+      userID: adminID,
       roomID,
-      sendTo: ADMIN_SEND_MSG,
-      msg: message
+      lotteryType: lotteryList[0].id
     })
   }
   
-
   socket.on(SOCKET_CHAT_SENT, ({status, sendTo, content, date}) => {
     if(status == RES_STATUS_SUCCESS)
     {
@@ -94,13 +201,49 @@ function App() {
     socket.on(SOCKET_CHAT_JOIN_ROOM, (res) => {
       if(res && res.data.msg)
         setMsgList(res.data.msg)
-      
     })
+    socket.on(SOCKET_BET_JOIN_ROOM, ({data, status, date}) => {
+      if(status == RES_STATUS_SUCCESS)
+       {
+         console.log(data, status, date)
+        //  if(data.betlogs != null || data.betlogs.length != 0)
+        //   {
+        //     let temp = []
+        //   data.betlogs.map((item, index) => {
+        //   if(item != null)
+        //     temp.push(item)
+        // })
+        //     setMsgList(temp)
+        //   }
+        // else
+        //   setMsgList([])
+       }
+     })
+     socket.on(SOCKET_BET_TABLE_EVENT, ({data, status, date}) => {
+      // debugger
+      
+      if(data.betlogs != null || data.betlogs.length != 0)
+        {
+          let temp = []
+        data.betlogs.map((item, index) => {
+        if(item != null)
+          temp.push(item)
+      })
+          setMsgList(temp)
+        }
+      else
+        setMsgList([])
+     })
     socket.on(SOCKET_CHAT_USERS_LIST, ({data}) => {
       if(data)
       {
-        setUserList(data.allowedUsers)
-        setSelectedUser(data.allowedUsers[0])
+        setchattingList(data.allowedUsers)
+        setAllowedUserList(data.allowedUsers)
+        setSelectedItem({
+          avatar: 'avatar/' + data.allowedUsers[0].avatar,
+          name:  data.allowedUsers[0].userId
+        })
+        // setSelectedItem(data.allowedUsers[0])
         if(data.allowedUsers[0])
         socket.emit(SOCKET_CHAT_JOIN_ROOM, {
           userID: data.allowedUsers[0]._id,
@@ -115,6 +258,8 @@ function App() {
       socket.off(SOCKET_CHAT_SENT);
       socket.off(SOCKET_CHAT_USERS_LIST);
       socket.off(SOCKET_CHAT_JOIN_ROOM);
+      socket.off(SOCKET_BET_JOIN_ROOM);
+      socket.off(SOCKET_BET_TABLE_EVENT);
       // socket.removeAllListeners();
       // socket.close();
     };
@@ -125,14 +270,25 @@ function App() {
   }
 
   return (
-    <div className="App">
-      <header className="App-header container">
+    <div className="">
+      <header className="">
         <Navbar/>
       </header>
       <div>
       <div className="container mx-auto pt-12">
-      <div className="min-w-full border rounded lg:grid lg:grid-cols-3">
-        <div className="border-r border-gray-300 lg:col-span-1">
+      <div className="mb-4 border-b border-gray-200 dark:border-gray-700">
+    <ul className="flex flex-wrap -mb-px text-sm font-medium text-center" id="myTab" data-tabs-toggle="#myTabContent" role="tablist">
+        <li className="mr-2" role="presentation">
+            <button className="inline-block p-4 rounded-t-lg border-b-2" id="profile-tab" data-tabs-target="#profile" type="button" role="tab" aria-controls="profile" aria-selected="false" onClick={(e) => {setchattingList(allowedUserList);setSelectedTab(0)}}>Private Chat</button>
+        </li>
+        <li className="mr-2" role="presentation">
+            <button className="inline-block p-4 rounded-t-lg border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300" id="dashboard-tab" data-tabs-target="#dashboard" type="button" role="tab" aria-controls="dashboard" aria-selected="false" onClick={(e) => {setSelectedTab(1);getBettingRoomList(e);}}>Betting Rooms</button>
+        </li>
+    </ul>
+</div>
+
+<div className="min-w-full border rounded lg:grid lg:grid-cols-4 flex lg:flex-row flex-col justify-between items-start px-3">
+        <div className="border-r border-gray-300 lg:col-span-1 w-full">
           <div className="mx-3 my-3">
             <div className="relative text-gray-600">
               <span className="absolute inset-y-0 left-0 flex items-center pl-2">
@@ -145,20 +301,20 @@ function App() {
                 placeholder="Search" required />
             </div>
           </div>
-
+          
           <ul className="overflow-auto h-[32rem]">
             <h2 className="my-2 mb-2 ml-2 text-lg text-gray-600">Admin Chats</h2>
               {
-                userList && 
+                chattingList &&
                 (
-                  userList.map((item, index) => {
+                  chattingList.map((item, index) => {
                     return (
                       <li onClick = {(e) => {getUserMessage(e, item)}} className="user_list_item active" key={index}>
                         <div className='flex items-center px-3 py-2 text-sm transition duration-150 ease-in-out border-b border-gray-300 cursor-pointer hover:bg-gray-100 focus:outline-none'>
-                          <img className="object-cover w-10 h-10 rounded-full" src={imageURL + item.avatar} alt="username" />
+                          <img className="object-cover w-10 h-10 rounded-full" src={imageURL + (selectedTab == 0 ? ('avatar/' + item.avatar) : ('room/' + item.image))} alt="username" />
                           <div className="w-full pb-2">
                             <div className="flex justify-between">
-                              <span className="block ml-2 font-semibold text-gray-600">{item.userId}</span>
+                              <span className="block ml-2 font-semibold text-gray-600">{selectedTab == 0 ? item.userId : item.name}</span>
                             </div>
                           </div>
                         </div>
@@ -168,12 +324,15 @@ function App() {
               }
           </ul>
         </div>
-        <div className="hidden lg:col-span-2 lg:block">
+        {
+          selectedTab == 0 ? 
+          <div className='lg:col-span-3 lg:block w-full'>
+            <div>
           <div className="w-full">
             <div className="relative flex items-center p-3 border-b border-gray-300">
               <img className="object-cover w-10 h-10 rounded-full"
-                src={selectedUser ? imageURL + selectedUser.avatar : "https://cdn.pixabay.com/photo/2018/01/15/07/51/woman-3083383__340.jpg"} alt="username" />
-              <span className="block ml-2 font-bold text-gray-600">{selectedUser && selectedUser.userId}</span>
+                src={selectedItem ? imageURL + selectedItem.avatar : "https://cdn.pixabay.com/photo/2018/01/15/07/51/woman-3083383__340.jpg"} alt="username" />
+              <span className="block ml-2 font-bold text-gray-600">{selectedItem && selectedItem.name}</span>
               <span className="absolute w-3 h-3 bg-green-600 rounded-full left-10 top-3">
               </span>
             </div>
@@ -191,7 +350,6 @@ function App() {
                             </div>
                           </li>
                         </div>
-                          
                       )
                     else
                     return (
@@ -203,11 +361,9 @@ function App() {
                         </div>
                         </li>
                       </div>
-                      
                     )
                   })
                 }
-                <div ref={messagesEndRef} />
               </ul>
             </div>
 
@@ -247,6 +403,93 @@ function App() {
             </div>
           </div>
         </div>
+          </div> : 
+          <div className='lg:col-span-3 lg:block w-full'>
+            <div className="flex flex-col">
+  <div className="overflow-x-auto sm:-mx-6 lg:-mx-8">
+    <div className="py-2 inline-block min-w-full sm:px-6 lg:px-8">
+      <div className="overflow-hidden">
+        <table className="min-w-full text-center">
+          <thead className="border-b">
+            <tr>
+              <th scope="col" className="text-sm font-medium text-gray-900 px-6 py-4">
+              No
+              </th>
+              <th scope="col" className="text-sm font-medium text-gray-900 px-6 py-4">
+              DateTime
+              </th>
+              <th scope="col" className="text-sm font-medium text-gray-900 px-6 py-4">
+              UserId
+              </th>
+              <th scope="col" className="text-sm font-medium text-gray-900 px-6 py-4">
+              <th scope="col" className="text-sm font-medium text-gray-900 px-6 py-4">
+              Content
+              </th>
+              </th>
+              <th scope="col" className="text-sm font-medium text-gray-900 px-6 py-4">
+              LotteryResult
+              </th>
+              <th scope="col" className="text-sm font-medium text-gray-900 px-6 py-4">
+              Profit
+              </th>
+            </tr>
+            </thead>
+            <tbody>
+                {
+                  msgList && msgList.map((item, index) => {
+                    return (
+                      <tr className="border-b">
+                      <td className="text-sm text-gray-900 font-medium px-6 py-4 whitespace-nowrap">
+                        {index + 1}
+                      </td>
+                      <td className="text-sm text-gray-900 font-medium px-6 py-4 whitespace-nowrap">
+                        {item.DateTime}
+                      </td>
+                      <td className="text-sm text-gray-900 font-medium px-6 py-4 whitespace-nowrap">
+                        {item.UserId}
+                      </td>
+                      <td className="text-sm text-gray-900 font-medium px-6 py-4 whitespace-nowrap">
+                        {item.Content}
+                      </td>
+                      <td className="text-sm text-gray-900 font-medium px-6 py-4 whitespace-nowrap">
+                        {item.lotteryResult}
+                      </td>
+                      <td className="text-sm text-gray-900 font-medium px-6 py-4 whitespace-nowrap">
+                        {item.Profit}
+                      </td>
+                    </tr>
+                    )
+                  })
+                }
+                {/* <td className="text-sm text-gray-900 font-medium px-6 py-4 whitespace-nowrap">
+                  No
+                </td>
+                <td className="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                  DateTime
+                </td>
+                <td className="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                  UserId
+                </td>
+                <td className="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                  Content
+                </td>
+                <td className="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                  LotteryResult
+                </td>
+                <td className="text-sm text-gray-900 font-light px-6 py-4 whitespace-nowrap">
+                  Profit
+                </td> */}
+              {
+
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+          </div>
+        }
       </div>
     </div>
       </div>
